@@ -150,10 +150,10 @@
         <h3>LUẬT CHƠI</h3>
         <ul>
           <li>
-            📍 <b>Hiệp 1:</b> Đặt 24 quân. Tạo hàng 3 để Khóa Mục Tiêu quân
+            📍 <b>Hiệp 1:</b> Đặt 24 quân. Tạo hàng 3 để Disable (làm mờ) quân
             địch.
           </li>
-          <li>🚫 <b>Lưu ý:</b> Quân bị khóa không thể tạo hàng 3 mới.</li>
+          <li>🚫 <b>Lưu ý:</b> Quân bị Disable không thể tạo hàng 3 mới.</li>
           <li>
             🏃 <b>Hiệp 2:</b> Di chuyển quân để tạo hàng 3 và xóa trực tiếp quân
             địch.
@@ -387,6 +387,13 @@
           ctx.fill();
 
           if (state.player !== 0) {
+            ctx.save();
+
+            // Nếu quân cờ bị đánh dấu (tagged), áp dụng hiệu ứng Disable (giảm độ mờ còn 50%)
+            if (state.tagged) {
+              ctx.globalAlpha = 0.5;
+            }
+
             ctx.beginPath();
             ctx.arc(p.x + 2, p.y + 3, 22, 0, Math.PI * 2);
             ctx.fillStyle = "rgba(0,0,0,0.2)";
@@ -429,28 +436,6 @@
               ctx.restore();
             }
 
-            // Hiệu ứng Khóa Mục Tiêu (Target Lock) thay cho chữ X cũ
-            if (state.tagged) {
-              ctx.save();
-              ctx.strokeStyle = "#e74c3c";
-              ctx.lineWidth = 3;
-              ctx.setLineDash([4, 4]);
-              ctx.beginPath();
-              ctx.arc(p.x, p.y, 24, 0, Math.PI * 2);
-              ctx.stroke();
-
-              ctx.strokeStyle = "#e74c3c";
-              ctx.lineWidth = 2;
-              ctx.setLineDash([]);
-              ctx.beginPath();
-              ctx.moveTo(p.x - 8, p.y);
-              ctx.lineTo(p.x + 8, p.y);
-              ctx.moveTo(p.x, p.y - 8);
-              ctx.lineTo(p.x, p.y + 8);
-              ctx.stroke();
-              ctx.restore();
-            }
-
             if (selectedPiece === i) {
               ctx.beginPath();
               ctx.arc(p.x, p.y, 26, 0, Math.PI * 2);
@@ -458,6 +443,8 @@
               ctx.lineWidth = 4;
               ctx.stroke();
             }
+
+            ctx.restore();
           }
         });
       }
@@ -513,7 +500,7 @@
           activeMill = mill;
           isRemovingMode = true;
           statusText.innerText = "HÀNG 3!";
-          subStatusText.innerText = `Người ${currentPlayer}: Đã khóa mục tiêu!`;
+          subStatusText.innerText = `Người ${currentPlayer}: Đã vô hiệu hóa quân địch!`;
 
           setTimeout(() => {
             activeMill = null;
