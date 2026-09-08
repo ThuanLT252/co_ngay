@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Firebase App & Realtime Database Compat SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <title>Cờ Chiến Thuật 24 - Professional 2D</title>
     <style>
       :root {
@@ -145,312 +148,327 @@
       <div class="side-column instructions">
         <h3>LUẬT CHƠI</h3>
         <ul>
-          <li>
-            📍 <b>Hiệp 1:</b> Đặt 24 quân. Tạo hàng 3 để Đánh dấu (X) quân địch.
-          </li>
-          <li>
-            🚫 <b>Lưu ý:</b> Quân bị đánh dấu (X) không thể tạo hàng 3 mới.
-          </li>
-          <li>
-            🏃 <b>Hiệp 2:</b> Di chuyển quân để tạo hàng 3 và xóa trực tiếp quân
-            địch.
-          </li>
+          <li>📍 <b>Hiệp 1:</b> Đặt 24 quân. Tạo hàng 3 để Đánh dấu (X) quân địch.</li>
+          <li>🚫 <b>Lưu ý:</b> Quân bị đánh dấu (X) không thể tạo hàng 3 mới.</li>
+          <li>🏃 <b>Hiệp 2:</b> Di chuyển quân để tạo hàng 3 và xóa trực tiếp quân địch.</li>
           <li>🏆 <b>Thắng:</b> Đối thủ còn < 3 quân hoặc bị vây chặt.</li>
         </ul>
       </div>
     </div>
 
     <script>
+      // --- 1. CẤU HÌNH VÀ KHỞI TẠO FIREBASE (ĐÃ SỬA CHUẨN COMPAT) ---
+      const firebaseConfig = {
+        apiKey: "AIzaSyDDZ5E2THCJBS8FpMDts2Z4vKBHt7EnxJ8",
+        authDomain: "congay.firebaseapp.com",
+        databaseURL: "https://congay-default-rtdb.asia-southeast1.firebasedatabase.app", // Nhớ điền databaseURL của bạn vào đây nếu chưa có
+        projectId: "congay",
+        storageBucket: "congay.firebasestorage.app",
+        messagingSenderId: "626260272788",
+        appId: "1:626260272788:web:79990e1c768041024fb681"
+      };
+
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+      
+      // Phòng chơi chung cố định
+      const gameRef = db.ref('games/phong_chung_01');
+      let myRole = null; 
+
+      // Tự động phân vai trò khi vào trang (Tab 1 là P1, Tab 2 là P2)
+      const presenceRef = db.ref('games/phong_chung_01/players');
+      presenceRef.transaction((currentPlayers) => {
+          if (!currentPlayers) {
+              myRole = 1;
+              return { p1: true, p2: false };
+          } else if (!currentPlayers.p1) {
+              myRole = 1;
+              return { ...currentPlayers, p1: true };
+          } else if (!currentPlayers.p2) {
+              myRole = 2;
+              return { ...currentPlayers, p2: true };
+          }
+          myRole = 3; // Khán giả nếu phòng đã đủ 2 người
+          return currentPlayers;
+      });
+
+      // --- 2. CÁC BIẾN CỦA GAME ---
       const canvas = document.getElementById("gameBoard");
       const ctx = canvas.getContext("2d");
       const statusText = document.getElementById("status");
       const subStatusText = document.getElementById("sub-status");
       const resetBtn = document.getElementById("resetBtn");
 
-      const size = 600,
-        padding = 60,
-        cellSize = (size - padding * 2) / 6;
-      let currentPlayer,
-        phase,
-        placingCount,
-        selectedPiece,
-        isRemovingMode,
-        gameActive,
-        boardState;
+      const size = 600, padding = 60, cellSize = (size - padding * 2) / 6;
+      let currentPlayer, phase, placingCount, selectedPiece, isRemovingMode, gameActive, boardState;
 
       const points = [
-        { x: 0, y: 0 },
-        { x: 3, y: 0 },
-        { x: 6, y: 0 },
-        { x: 6, y: 3 },
-        { x: 6, y: 6 },
-        { x: 3, y: 6 },
-        { x: 0, y: 6 },
-        { x: 0, y: 3 },
-        { x: 1, y: 1 },
-        { x: 3, y: 1 },
-        { x: 5, y: 1 },
-        { x: 5, y: 3 },
-        { x: 5, y: 5 },
-        { x: 3, y: 5 },
-        { x: 1, y: 5 },
-        { x: 1, y: 3 },
-        { x: 2, y: 2 },
-        { x: 3, y: 2 },
-        { x: 4, y: 2 },
-        { x: 4, y: 3 },
-        { x: 4, y: 4 },
-        { x: 3, y: 4 },
-        { x: 2, y: 4 },
-        { x: 2, y: 3 },
+          { x: 0, y: 0 }, { x: 3, y: 0 }, { x: 6, y: 0 }, { x: 6, y: 3 },
+          { x: 6, y: 6 }, { x: 3, y: 6 }, { x: 0, y: 6 }, { x: 0, y: 3 },
+          { x: 1, y: 1 }, { x: 3, y: 1 }, { x: 5, y: 1 }, { x: 5, y: 3 },
+          { x: 5, y: 5 }, { x: 3, y: 5 }, { x: 1, y: 5 }, { x: 1, y: 3 },
+          { x: 2, y: 2 }, { x: 3, y: 2 }, { x: 4, y: 2 }, { x: 4, y: 3 },
+          { x: 4, y: 4 }, { x: 3, y: 4 }, { x: 2, y: 4 }, { x: 2, y: 3 }
       ];
 
       const mills = [
-        [0, 1, 2],
-        [2, 3, 4],
-        [4, 5, 6],
-        [6, 7, 0],
-        [8, 9, 10],
-        [10, 11, 12],
-        [12, 13, 14],
-        [14, 15, 8],
-        [16, 17, 18],
-        [18, 19, 20],
-        [20, 21, 22],
-        [22, 23, 16],
-        [1, 9, 17],
-        [5, 13, 21],
-        [7, 15, 23],
-        [3, 11, 19],
-        [0, 8, 16],
-        [2, 10, 18],
-        [4, 12, 20],
-        [6, 14, 22],
+          [0, 1, 2], [2, 3, 4], [4, 5, 6], [6, 7, 0],
+          [8, 9, 10], [10, 11, 12], [12, 13, 14], [14, 15, 8],
+          [16, 17, 18], [18, 19, 20], [20, 21, 22], [22, 23, 16],
+          [1, 9, 17], [5, 13, 21], [7, 15, 23], [3, 11, 19],
+          [0, 8, 16], [2, 10, 18], [4, 12, 20], [6, 14, 22]
       ];
 
       const adj = Array.from({ length: 24 }, () => []);
       mills.forEach((mill) => {
-        for (let i = 0; i < mill.length - 1; i++) {
-          const u = mill[i],
-            v = mill[i + 1];
-          if (!adj[u].includes(v)) adj[u].push(v);
-          if (!adj[v].includes(u)) adj[v].push(u);
-        }
+          for (let i = 0; i < mill.length - 1; i++) {
+              const u = mill[i], v = mill[i + 1];
+              if (!adj[u].includes(v)) adj[u].push(v);
+              if (!adj[v].includes(u)) adj[v].push(u);
+          }
       });
 
-      function initGame() {
-        currentPlayer = 2;
-        phase = 1;
-        placingCount = 0;
-        selectedPiece = null;
-        isRemovingMode = false;
-        gameActive = true;
-        boardState = points.map(() => ({ player: 0, tagged: false }));
-        draw();
-        nextTurn();
+      // --- 3. ĐỒNG BỘ DỮ LIỆU TỪ FIREBASE (REAL-TIME) ---
+      gameRef.on("value", (snapshot) => {
+          const gameState = snapshot.val();
+          if (!gameState || !gameState.boardState) {
+              if (myRole === 1) resetGameOnCloud();
+              return;
+          }
+
+          currentPlayer = gameState.currentPlayer;
+          phase = gameState.phase;
+          placingCount = gameState.placingCount;
+          boardState = gameState.boardState;
+          gameActive = gameState.gameActive;
+          isRemovingMode = gameState.isRemovingMode;
+
+          draw();
+          updateUIState();
+      });
+
+      function syncToCloud() {
+          gameRef.update({
+              currentPlayer: currentPlayer,
+              phase: phase,
+              placingCount: placingCount,
+              boardState: boardState,
+              gameActive: gameActive,
+              isRemovingMode: isRemovingMode
+          });
+      }
+
+      function resetGameOnCloud() {
+          const initialBoard = points.map(() => ({ player: 0, tagged: false }));
+          gameRef.set({
+              currentPlayer: 2,
+              phase: 1,
+              placingCount: 0,
+              boardState: initialBoard,
+              gameActive: true,
+              isRemovingMode: false
+          });
       }
 
       function getPixel(idx) {
-        return {
-          x: padding + points[idx].x * cellSize,
-          y: padding + points[idx].y * cellSize,
-        };
+          return {
+              x: padding + points[idx].x * cellSize,
+              y: padding + points[idx].y * cellSize,
+          };
       }
 
       function draw() {
-        ctx.clearRect(0, 0, size, size);
-        ctx.strokeStyle = "#34495e";
-        ctx.lineWidth = 4;
-        mills.forEach((m) => {
-          ctx.beginPath();
-          const p1 = getPixel(m[0]),
-            p2 = getPixel(m[1]),
-            p3 = getPixel(m[2]);
-          ctx.moveTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.lineTo(p3.x, p3.y);
-          ctx.stroke();
-        });
-
-        boardState.forEach((state, i) => {
-          const p = getPixel(i);
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
-          ctx.fillStyle = "#bdc3c7";
-          ctx.fill();
-
-          if (state.player !== 0) {
-            ctx.beginPath();
-            ctx.arc(p.x + 2, p.y + 3, 22, 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(0,0,0,0.2)";
-            ctx.fill();
-
-            const grad = ctx.createRadialGradient(
-              p.x - 6,
-              p.y - 6,
-              2,
-              p.x,
-              p.y,
-              22,
-            );
-            if (state.player === 1) {
-              grad.addColorStop(0, "#ff7675");
-              grad.addColorStop(1, "#d63031");
-            } else {
-              grad.addColorStop(0, "#74b9ff");
-              grad.addColorStop(1, "#0984e3");
-            }
-
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 22, 0, Math.PI * 2);
-            ctx.fillStyle = grad;
-            ctx.fill();
-
-            if (state.tagged) {
-              ctx.fillStyle = "white";
-              ctx.font = "bold 24px Arial";
-              ctx.textAlign = "center";
-              ctx.textBaseline = "middle";
-              ctx.fillText("X", p.x, p.y);
-            }
-            if (selectedPiece === i) {
+          ctx.clearRect(0, 0, size, size);
+          ctx.strokeStyle = "#34495e";
+          ctx.lineWidth = 4;
+          mills.forEach((m) => {
               ctx.beginPath();
-              ctx.arc(p.x, p.y, 26, 0, Math.PI * 2);
-              ctx.strokeStyle = "#f1c40f";
-              ctx.lineWidth = 4;
+              const p1 = getPixel(m[0]), p2 = getPixel(m[1]), p3 = getPixel(m[2]);
+              ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y);
               ctx.stroke();
-            }
-          }
-        });
+          });
+
+          boardState.forEach((state, i) => {
+              const p = getPixel(i);
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+              ctx.fillStyle = "#bdc3c7";
+              ctx.fill();
+
+              if (state.player !== 0) {
+                  ctx.beginPath();
+                  ctx.arc(p.x + 2, p.y + 3, 22, 0, Math.PI * 2);
+                  ctx.fillStyle = "rgba(0,0,0,0.2)";
+                  ctx.fill();
+
+                  const grad = ctx.createRadialGradient(p.x - 6, p.y - 6, 2, p.x, p.y, 22);
+                  if (state.player === 1) {
+                      grad.addColorStop(0, "#ff7675");
+                      grad.addColorStop(1, "#d63031");
+                  } else {
+                      grad.addColorStop(0, "#74b9ff");
+                      grad.addColorStop(1, "#0984e3");
+                  }
+
+                  ctx.beginPath();
+                  ctx.arc(p.x, p.y, 22, 0, Math.PI * 2);
+                  ctx.fillStyle = grad;
+                  ctx.fill();
+
+                  if (state.tagged) {
+                      ctx.fillStyle = "white";
+                      ctx.font = "bold 24px Arial";
+                      ctx.textAlign = "center";
+                      ctx.textBaseline = "middle";
+                      ctx.fillText("X", p.x, p.y);
+                  }
+                  if (selectedPiece === i) {
+                      ctx.beginPath();
+                      ctx.arc(p.x, p.y, 26, 0, Math.PI * 2);
+                      ctx.strokeStyle = "#f1c40f";
+                      ctx.lineWidth = 4;
+                      ctx.stroke();
+                  }
+              }
+          });
       }
 
       function checkMill(idx, player) {
-        return mills.some(
-          (mill) =>
-            mill.includes(idx) &&
-            mill.every(
-              (i) => boardState[i].player === player && !boardState[i].tagged,
-            ),
-        );
+          return mills.some(
+              (mill) =>
+                  mill.includes(idx) &&
+                  mill.every((i) => boardState[i].player === player && !boardState[i].tagged)
+          );
       }
 
       function canMove(player) {
-        const playerPos = boardState
-          .map((s, i) => (s.player === player ? i : -1))
-          .filter((i) => i !== -1);
-        return playerPos.some((pos) =>
-          adj[pos].some((n) => boardState[n].player === 0),
-        );
+          const playerPos = boardState
+              .map((s, i) => (s.player === player ? i : -1))
+              .filter((i) => i !== -1);
+          return playerPos.some((pos) =>
+              adj[pos].some((n) => boardState[n].player === 0)
+          );
       }
 
+      // --- 4. XỬ LÝ SỰ KIỆN CLICK CHUỘT (ONLINE RULES) ---
       canvas.addEventListener("mousedown", (e) => {
-        if (!gameActive) return;
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const clickedIdx = points.findIndex(
-          (p, i) => Math.hypot(getPixel(i).x - x, getPixel(i).y - y) < 30,
-        );
-        if (clickedIdx === -1) return;
+          if (!gameActive) return;
 
-        if (isRemovingMode) handleRemoving(clickedIdx);
-        else if (phase === 1) handlePhase1(clickedIdx);
-        else handlePhase2(clickedIdx);
-        draw();
+          if (currentPlayer !== myRole) {
+              alert("Chưa đến lượt của bạn!");
+              return;
+          }
+
+          const rect = canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          const clickedIdx = points.findIndex(
+              (p, i) => Math.hypot(getPixel(i).x - x, getPixel(i).y - y) < 30
+          );
+          if (clickedIdx === -1) return;
+
+          if (isRemovingMode) handleRemoving(clickedIdx);
+          else if (phase === 1) handlePhase1(clickedIdx);
+          else handlePhase2(clickedIdx);
+
+          syncToCloud();
       });
 
       function handlePhase1(idx) {
-        if (boardState[idx].player !== 0) return;
-        boardState[idx].player = currentPlayer;
-        placingCount++;
-        if (checkMill(idx, currentPlayer)) {
-          isRemovingMode = true;
-          statusText.innerText = "HÀNG 3!";
-          subStatusText.innerText = `Người ${currentPlayer}: Đang đánh dấu quân địch...`;
-        } else {
-          nextTurn();
-        }
-        if (placingCount === 24 && !isRemovingMode) startPhase2();
+          if (boardState[idx].player !== 0) return;
+          boardState[idx].player = currentPlayer;
+          placingCount++;
+          if (checkMill(idx, currentPlayer)) {
+              isRemovingMode = true;
+              statusText.innerText = "HÀNG 3!";
+              subStatusText.innerText = `Người ${currentPlayer}: Đang đánh dấu quân địch...`;
+          } else {
+              nextTurn();
+          }
+          if (placingCount === 24 && !isRemovingMode) startPhase2();
       }
 
       function handlePhase2(idx) {
-        const state = boardState[idx];
-        if (selectedPiece === null) {
-          if (state.player === currentPlayer) selectedPiece = idx;
-        } else {
-          if (state.player === 0 && adj[selectedPiece].includes(idx)) {
-            boardState[idx].player = currentPlayer;
-            boardState[selectedPiece].player = 0;
-            if (checkMill(idx, currentPlayer)) {
-              isRemovingMode = true;
-              statusText.innerText = "MILL!";
-              subStatusText.innerText = `Người ${currentPlayer}: Đang xóa quân địch...`;
-              selectedPiece = null;
-            } else {
-              selectedPiece = null;
-              nextTurn();
-            }
+          const state = boardState[idx];
+          if (selectedPiece === null) {
+              if (state.player === currentPlayer) selectedPiece = idx;
           } else {
-            selectedPiece = state.player === currentPlayer ? idx : null;
+              if (state.player === 0 && adj[selectedPiece].includes(idx)) {
+                  boardState[idx].player = currentPlayer;
+                  boardState[selectedPiece].player = 0;
+                  if (checkMill(idx, currentPlayer)) {
+                      isRemovingMode = true;
+                      statusText.innerText = "MILL!";
+                      subStatusText.innerText = `Người ${currentPlayer}: Đang xóa quân địch...`;
+                      selectedPiece = null;
+                  } else {
+                      selectedPiece = null;
+                      nextTurn();
+                  }
+              } else {
+                  selectedPiece = state.player === currentPlayer ? idx : null;
+              }
           }
-        }
       }
 
       function handleRemoving(idx) {
-        const opponent = currentPlayer === 1 ? 2 : 1;
-        if (boardState[idx].player !== opponent || boardState[idx].tagged)
-          return;
-        if (phase === 1) boardState[idx].tagged = true;
-        else boardState[idx] = { player: 0, tagged: false };
-        isRemovingMode = false;
-        if (phase === 1 && placingCount === 24) startPhase2();
-        else nextTurn();
+          const opponent = currentPlayer === 1 ? 2 : 1;
+          if (boardState[idx].player !== opponent || boardState[idx].tagged) return;
+          if (phase === 1) boardState[idx].tagged = true;
+          else boardState[idx] = { player: 0, tagged: false };
+          isRemovingMode = false;
+          if (phase === 1 && placingCount === 24) startPhase2();
+          else nextTurn();
       }
 
       function startPhase2() {
-        phase = 2;
-        boardState = boardState.map((s) =>
-          s.tagged ? { player: 0, tagged: false } : s,
-        );
-        statusText.innerText = "HIỆP 2 BẮT ĐẦU";
-        nextTurn();
+          phase = 2;
+          boardState = boardState.map((s) => s.tagged ? { player: 0, tagged: false } : s);
+          statusText.innerText = "HIỆP 2 BẮT ĐẦU";
+          nextTurn();
       }
 
       function nextTurn() {
-        if (phase === 2) {
-          const p1 = boardState.filter((s) => s.player === 1).length;
-          const p2 = boardState.filter((s) => s.player === 2).length;
-          if (p1 < 3) return endGame("XANH THẮNG!", "Đỏ đã hết quân.");
-          if (p2 < 3) return endGame("ĐỎ THẮNG!", "Xanh đã hết quân.");
-          const nextP = currentPlayer === 1 ? 2 : 1;
-          if (!canMove(nextP))
-            return endGame(
-              `${currentPlayer === 1 ? "ĐỎ" : "XANH"} THẮNG!`,
-              "Đối thủ bị vây chặt.",
-            );
-        }
-        currentPlayer = currentPlayer === 1 ? 2 : 1;
+          if (phase === 2) {
+              const p1 = boardState.filter((s) => s.player === 1).length;
+              const p2 = boardState.filter((s) => s.player === 2).length;
+              if (p1 < 3) return endGame("XANH THẮNG!", "Đỏ đã hết quân.");
+              if (p2 < 3) return endGame("ĐỎ THẮNG!", "Xanh đã hết quân.");
+              const nextP = currentPlayer === 1 ? 2 : 1;
+              if (!canMove(nextP))
+                  return endGame(
+                      `${currentPlayer === 1 ? "ĐỎ" : "XANH"} THẮNG!`,
+                      "Đối thủ bị vây chặt."
+                  );
+          }
+          currentPlayer = currentPlayer === 1 ? 2 : 1;
+      }
 
-        // Đổi màu text theo người chơi
-        const playerColor =
-          currentPlayer === 1 ? "var(--red-piece)" : "var(--blue-piece)";
-        subStatusText.style.color = playerColor;
+      function updateUIState() {
+          const playerColor = currentPlayer === 1 ? "var(--red-piece)" : "var(--blue-piece)";
+          subStatusText.style.color = playerColor;
 
-        statusText.innerText =
-          phase === 1 ? "Hiệp 1: Đặt quân" : "Hiệp 2: Di chuyển";
-        subStatusText.innerText = `Lượt: Người chơi ${currentPlayer} (${currentPlayer === 1 ? "Đỏ" : "Xanh"})`;
+          if (gameActive && !isRemovingMode) {
+              statusText.innerText = phase === 1 ? "Hiệp 1: Đặt quân" : "Hiệp 2: Di chuyển";
+              subStatusText.innerText = `Lượt: Người chơi ${currentPlayer} (${currentPlayer === 1 ? "Đỏ" : "Xanh"}) ${myRole === currentPlayer ? ' (Lượt của bạn)' : ''}`;
+          }
       }
 
       function endGame(title, detail) {
-        gameActive = false;
-        statusText.innerText = title;
-        statusText.style.color = "#f1c40f";
-        subStatusText.innerText = detail;
-        subStatusText.style.color = "#ecf0f1";
+          gameActive = false;
+          statusText.innerText = title;
+          statusText.style.color = "#f1c40f";
+          subStatusText.innerText = detail;
+          subStatusText.style.color = "#ecf0f1";
       }
 
-      resetBtn.addEventListener("click", initGame);
-      initGame();
+      resetBtn.addEventListener("click", () => {
+          if(myRole === 1 || myRole === 2) {
+              resetGameOnCloud();
+          } else {
+              alert("Chỉ người chơi chính mới có thể reset ván đấu!");
+          }
+      });
     </script>
   </body>
 </html>
