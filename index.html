@@ -150,11 +150,10 @@
         <h3>LUẬT CHƠI</h3>
         <ul>
           <li>
-            📍 <b>Hiệp 1:</b> Đặt 24 quân. Tạo hàng 3 để Đánh dấu (X) quân địch.
+            📍 <b>Hiệp 1:</b> Đặt 24 quân. Tạo hàng 3 để Khóa Mục Tiêu quân
+            địch.
           </li>
-          <li>
-            🚫 <b>Lưu ý:</b> Quân bị đánh dấu (X) không thể tạo hàng 3 mới.
-          </li>
+          <li>🚫 <b>Lưu ý:</b> Quân bị khóa không thể tạo hàng 3 mới.</li>
           <li>
             🏃 <b>Hiệp 2:</b> Di chuyển quân để tạo hàng 3 và xóa trực tiếp quân
             địch.
@@ -212,9 +211,10 @@
         selectedPiece,
         isRemovingMode,
         gameActive,
-        boardState,
-        activeMill = null;
-      let blinkAnimId = null;
+        boardState;
+      let activeMill = null;
+      let globalAnimFrame = null;
+      let animStep = 0;
 
       const points = [
         { x: 0, y: 0 },
@@ -291,7 +291,7 @@
         isRemovingMode = gameState.isRemovingMode;
         activeMill = gameState.activeMill || null;
 
-        draw();
+        manageLoopAnimation();
         updateUIState();
       });
 
@@ -327,8 +327,20 @@
         };
       }
 
-      // Hàm vẽ bàn cờ kết hợp hiệu ứng chớp nháy (animation)
-      function draw(blinkState = true) {
+      function manageLoopAnimation() {
+        if (globalAnimFrame) cancelAnimationFrame(globalAnimFrame);
+
+        function renderLoop() {
+          animStep++;
+          drawScene();
+          if (activeMill || isRemovingMode) {
+            globalAnimFrame = requestAnimationFrame(renderLoop);
+          }
+        }
+        renderLoop();
+      }
+
+      function drawScene() {
         ctx.clearRect(0, 0, size, size);
         ctx.strokeStyle = "#34495e";
         ctx.lineWidth = 4;
@@ -344,18 +356,25 @@
           ctx.stroke();
         });
 
-        // Hiệu ứng đường thẳng chớp 3 lần khi tạo Mill
-        if (activeMill && blinkState) {
-          ctx.strokeStyle = "#f1c40f";
-          ctx.lineWidth = 8;
-          ctx.beginPath();
-          const p1 = getPixel(activeMill[0]),
-            p2 = getPixel(activeMill[1]),
-            p3 = getPixel(activeMill[2]);
-          ctx.moveTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.lineTo(p3.x, p3.y);
-          ctx.stroke();
+        // Hiệu ứng đường thẳng hàng 3 chớp chậm
+        if (activeMill) {
+          const showLine = Math.floor(animStep / 30) % 2 === 0;
+          if (showLine) {
+            ctx.save();
+            ctx.strokeStyle = "#f1c40f";
+            ctx.lineWidth = 10;
+            ctx.shadowColor = "#f1c40f";
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            const p1 = getPixel(activeMill[0]),
+              p2 = getPixel(activeMill[1]),
+              p3 = getPixel(activeMill[2]);
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.lineTo(p3.x, p3.y);
+            ctx.stroke();
+            ctx.restore();
+          }
         }
 
         const opponent = currentPlayer === 1 ? 2 : 1;
@@ -394,27 +413,44 @@
             ctx.fillStyle = grad;
             ctx.fill();
 
-            // Hiệu ứng chớp nháy cho quân địch khi đang ở chế độ xóa/đánh dấu
-            if (
-              isRemovingMode &&
-              state.player === opponent &&
-              !state.tagged &&
-              !blinkState
-            ) {
+            // Hiệu ứng tỏa sáng liên tục cho quân địch cần chọn
+            if (isRemovingMode && state.player === opponent && !state.tagged) {
+              const pulse = Math.sin(animStep * 0.1) * 6 + 24;
+              const alpha = ((Math.sin(animStep * 0.1) + 1) / 2) * 0.7 + 0.3;
+
+              ctx.save();
               ctx.beginPath();
-              ctx.arc(p.x, p.y, 26, 0, Math.PI * 2);
-              ctx.strokeStyle = "#ffffff";
-              ctx.lineWidth = 5;
+              ctx.arc(p.x, p.y, pulse, 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(255, 234, 167, ${alpha})`;
+              ctx.lineWidth = 6;
+              ctx.shadowColor = "#ffeaa7";
+              ctx.shadowBlur = 12;
               ctx.stroke();
+              ctx.restore();
             }
 
+            // Hiệu ứng Khóa Mục Tiêu (Target Lock) thay cho chữ X cũ
             if (state.tagged) {
-              ctx.fillStyle = "white";
-              ctx.font = "bold 24px Arial";
-              ctx.textAlign = "center";
-              ctx.textBaseline = "middle";
-              ctx.fillText("X", p.x, p.y);
+              ctx.save();
+              ctx.strokeStyle = "#e74c3c";
+              ctx.lineWidth = 3;
+              ctx.setLineDash([4, 4]);
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, 24, 0, Math.PI * 2);
+              ctx.stroke();
+
+              ctx.strokeStyle = "#e74c3c";
+              ctx.lineWidth = 2;
+              ctx.setLineDash([]);
+              ctx.beginPath();
+              ctx.moveTo(p.x - 8, p.y);
+              ctx.lineTo(p.x + 8, p.y);
+              ctx.moveTo(p.x, p.y - 8);
+              ctx.lineTo(p.x, p.y + 8);
+              ctx.stroke();
+              ctx.restore();
             }
+
             if (selectedPiece === i) {
               ctx.beginPath();
               ctx.arc(p.x, p.y, 26, 0, Math.PI * 2);
@@ -424,26 +460,6 @@
             }
           }
         });
-      }
-
-      // Kích hoạt hiệu ứng chớp 3 lần (mỗi nhịp ~300ms)
-      function triggerBlinkEffect(millIndices, callback) {
-        activeMill = millIndices;
-        let count = 0;
-        if (blinkAnimId) clearInterval(blinkAnimId);
-
-        blinkAnimId = setInterval(() => {
-          count++;
-          draw(count % 2 === 0);
-          if (count >= 6) {
-            // 3 lần sáng - tối
-            clearInterval(blinkAnimId);
-            activeMill = null;
-            draw(true);
-            syncToCloud();
-            if (callback) callback();
-          }
-        }, 300);
       }
 
       function checkMillAndGetIndices(idx, player) {
@@ -472,6 +488,7 @@
           alert("Chưa đến lượt của bạn!");
           return;
         }
+        if (activeMill) return;
 
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -493,24 +510,27 @@
 
         const mill = checkMillAndGetIndices(idx, currentPlayer);
         if (mill) {
+          activeMill = mill;
           isRemovingMode = true;
           statusText.innerText = "HÀNG 3!";
-          subStatusText.innerText = `Người ${currentPlayer}: Đang đánh dấu quân địch...`;
-          triggerBlinkEffect(mill, () => {
-            startBlinkingOpponentPieces();
-          });
+          subStatusText.innerText = `Người ${currentPlayer}: Đã khóa mục tiêu!`;
+
+          setTimeout(() => {
+            activeMill = null;
+            syncToCloud();
+          }, 2500);
         } else {
           nextTurn();
-          syncToCloud();
         }
         if (placingCount === 24 && !isRemovingMode) startPhase2();
+        else syncToCloud();
       }
 
       function handlePhase2(idx) {
         const state = boardState[idx];
         if (selectedPiece === null) {
           if (state.player === currentPlayer) selectedPiece = idx;
-          draw();
+          manageLoopAnimation();
         } else {
           if (state.player === 0 && adj[selectedPiece].includes(idx)) {
             boardState[idx].player = currentPlayer;
@@ -518,38 +538,26 @@
 
             const mill = checkMillAndGetIndices(idx, currentPlayer);
             if (mill) {
+              activeMill = mill;
               isRemovingMode = true;
               statusText.innerText = "MILL!";
-              subStatusText.innerText = `Người ${currentPlayer}: Đang xóa quân địch...`;
+              subStatusText.innerText = `Người ${currentPlayer}: Tạo hàng 3 thành công!`;
               selectedPiece = null;
-              triggerBlinkEffect(mill, () => {
-                startBlinkingOpponentPieces();
-              });
+
+              setTimeout(() => {
+                activeMill = null;
+                syncToCloud();
+              }, 2500);
             } else {
               selectedPiece = null;
               nextTurn();
-              syncToCloud();
             }
           } else {
             selectedPiece = state.player === currentPlayer ? idx : null;
-            draw();
           }
+          manageLoopAnimation();
+          syncToCloud();
         }
-      }
-
-      // Hiệu ứng chớp liên tục cho các quân địch để người chơi dễ nhận biết chỗ xóa
-      let opponentBlinkTimer = null;
-      function startBlinkingOpponentPieces() {
-        if (opponentBlinkTimer) clearInterval(opponentBlinkTimer);
-        let toggle = false;
-        opponentBlinkTimer = setInterval(() => {
-          if (!isRemovingMode) {
-            clearInterval(opponentBlinkTimer);
-            return;
-          }
-          toggle = !toggle;
-          draw(toggle);
-        }, 400);
       }
 
       function handleRemoving(idx) {
@@ -561,7 +569,7 @@
         else boardState[idx] = { player: 0, tagged: false };
 
         isRemovingMode = false;
-        if (opponentBlinkTimer) clearInterval(opponentBlinkTimer);
+        activeMill = null;
 
         if (phase === 1 && placingCount === 24) startPhase2();
         else nextTurn();
@@ -598,7 +606,7 @@
           currentPlayer === 1 ? "var(--red-piece)" : "var(--blue-piece)";
         subStatusText.style.color = playerColor;
 
-        if (gameActive && !isRemovingMode) {
+        if (gameActive && !isRemovingMode && !activeMill) {
           statusText.innerText =
             phase === 1 ? "Hiệp 1: Đặt quân" : "Hiệp 2: Di chuyển";
           subStatusText.innerText = `Lượt: Người chơi ${currentPlayer} (${currentPlayer === 1 ? "Đỏ" : "Xanh"}) ${myRole === currentPlayer ? " (Lượt của bạn)" : ""}`;
