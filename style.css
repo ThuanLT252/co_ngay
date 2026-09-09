@@ -1,0 +1,248 @@
+:root {
+  --bg-grad: radial-gradient(circle, #2c3e50 0%, #000000 100%);
+  --panel-bg: rgba(44, 62, 80, 0.9);
+  --highlight: #f1c40f;
+  --text-color: #ecf0f1;
+  --red-piece: #ff7675;
+  --blue-piece: #74b9ff;
+}
+
+body {
+  background: var(--bg-grad);
+  color: var(--text-color);
+  font-family: "Segoe UI", sans-serif;
+  margin: 0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+}
+
+h1 {
+  margin-bottom: 30px;
+  color: var(--highlight);
+  text-transform: uppercase;
+  letter-spacing: 5px;
+  text-shadow: 0 0 15px rgba(241, 196, 15, 0.5);
+  text-align: center;
+}
+
+.game-wrapper {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 30px;
+  width: 100%;
+  max-width: 1300px;
+}
+
+.side-column {
+  flex: 1;
+  min-width: 280px;
+  max-width: 320px;
+  background: var(--panel-bg);
+  padding: 25px;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.center-column {
+  flex: 0 0 auto;
+  position: relative;
+}
+
+canvas {
+  background: #ecf0f1;
+  cursor: pointer;
+  border-radius: 10px;
+  border: 8px solid #34495e;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.7);
+}
+
+#status {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: var(--highlight);
+}
+#sub-status {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 20px;
+  transition: color 0.3s;
+}
+
+#resetBtn {
+  width: 100%;
+  background: #27ae60;
+  color: white;
+  border: none;
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.2s;
+  margin-top: 10px;
+}
+#resetBtn:hover {
+  background: #2ecc71;
+}
+
+#surrenderBtn {
+  width: 100%;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.2s;
+  margin-top: 10px;
+}
+#surrenderBtn:hover {
+  background: #c0392b;
+}
+
+.history-box {
+  margin-top: 20px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 15px;
+  border-radius: 10px;
+}
+.history-box h3 {
+  margin-top: 0;
+  color: var(--highlight);
+  border-bottom: 1px solid #555;
+  padding-bottom: 10px;
+}
+#moveHistory {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 0.9rem;
+}
+#moveHistory li {
+  margin-bottom: 8px;
+  padding: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 5px;
+  border-left: 3px solid #7f8c8d;
+}
+#moveHistory li.p1 {
+  border-left-color: var(--red-piece);
+}
+#moveHistory li.p2 {
+  border-left-color: var(--blue-piece);
+}
+
+.instructions h3 {
+  margin-top: 0;
+  color: var(--highlight);
+  border-bottom: 1px solid #555;
+  padding-bottom: 10px;
+}
+.instructions ul {
+  padding-left: 15px;
+  font-size: 0.95rem;
+  list-style: none;
+}
+.instructions li {
+  margin-bottom: 12px;
+  border-left: 3px solid var(--highlight);
+  padding-left: 10px;
+  line-height: 1.4;
+}
+
+/* Lobby Styles */
+#lobby {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-bg);
+  padding: 40px;
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  margin-top: 50px;
+}
+#lobby h2 {
+  color: var(--highlight);
+  margin-top: 0;
+}
+#lobby input {
+  padding: 10px;
+  font-size: 1.1rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  margin-bottom: 15px;
+  width: 250px;
+  text-align: center;
+}
+#lobby button {
+  padding: 10px 20px;
+  font-size: 1.1rem;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  background: #3498db;
+  color: white;
+  font-weight: bold;
+  margin-bottom: 10px;
+  width: 250px;
+  transition: 0.2s;
+}
+#lobby button:hover {
+  background: #2980b9;
+}
+#lobby .or {
+  margin: 10px 0;
+  font-weight: bold;
+}
+
+/* Timer styles */
+.timer-container {
+  margin-top: 15px;
+  background: #34495e;
+  border-radius: 10px;
+  height: 20px;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+#timer-bar {
+  height: 100%;
+  background: #e74c3c;
+  width: 100%;
+  transition: width 1s linear, background 0.3s;
+}
+#timer-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 0.9rem;
+  line-height: 20px;
+  color: white;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px black;
+}
+
+@media (max-width: 1100px) {
+  .game-wrapper {
+    flex-direction: column;
+    align-items: center;
+  }
+  .side-column {
+    width: 100%;
+    max-width: 600px;
+  }
+}
